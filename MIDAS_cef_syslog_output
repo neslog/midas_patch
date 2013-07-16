@@ -25,6 +25,7 @@
 +
 +
 +# JSA Syslog prep
++do_syslog = 'F'
 +if config.has_section("syslog"):
 +       do_syslog = 'T'
 +       print ("Configuring Syslog")
@@ -61,6 +62,7 @@
                                 # Print yara hits, or none..**this will eventually export to logger**
                                 if matches:
 +                                       for sigs in matches:
++                                         if do_syslog == 'T'
 +                                               stime = time.mktime(time.gmtime())
 +                                                       formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
 +                                                       syslog.setFormatter(formatter)
