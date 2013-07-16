@@ -12,3 +12,5 @@ deviceVendor: MIDAS
 deviceProduct: YARA
 deviceVersion:  1
 
+Modified to move files and rename with the MD5 hash of the file.
+
