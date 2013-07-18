@@ -1,0 +1,88 @@
+--- /usr/local/bin/scripts/MIDAS/midas.py  2013-07-16 12:54:35.000000000 -0400
++++ MIDAS/midas.py	2012-11-13 10:00:04.000000000 -0500
+@@ -21,10 +21,6 @@
+ import argparse
+ import logging
+ import pymongo
+-import socket
+-import time
+-
+-from logging.handlers import SysLogHandler
+ 
+ # Import DB Config from midas-settings.cfg
+ config = ConfigParser.SafeConfigParser()
+@@ -66,29 +62,7 @@
+ rules = yara.compile(yararules)
+ 
+ # Set Path to files from Argument
+-#pathtofiles = args['Path']
+-pathtofiles = config.get('settings','filePath')
+-
+-#CEF Variables
+-vendor = config.get('settings','deviceVendor')
+-product = config.get('settings','deviceProduct')
+-version = config.get('settings','deviceVersion')
+-
+-
+-# JSA Syslog prep
+-do_syslog = 'F'
+-if config.has_section("syslog"):
+-	do_syslog = 'T'
+-	print ("Configuring Syslog")
+-	loghost = config.get('syslog','loghost')
+-	logport = int(config.get('syslog','logport'))
+-        logger = logging.getLogger()
+-        logger.setLevel(logging.INFO)
+-        syslog = SysLogHandler(address=(loghost, logport))
+-
+-else:
+-	print ("No syslog section found")
+-
++pathtofiles = args['Path']
+ 
+ # Return Warm and Fuzzy to CLI while magic happens in the background
+ print "\n\n Scanning all files recursively from here: " + pathtofiles 
+@@ -118,7 +92,6 @@
+ def main():
+ 	# Sleep function, program will run infinitly until killed (ctrl-c)
+ 	while True:
+-		sensor_name = socket.gethostname()
+ 		# Recursivly walk the target path and create a filename which is relative to the program
+ 		for root, dirs, files in os.walk(pathtofiles):
+     			for name in files: 
+@@ -126,7 +99,6 @@
+ 				# Run exiftool to extract all metadata from a file
+ 				with exiftool.ExifTool() as et:
+ 		    			metadata = et.get_metadata(filename)
+-					#for i in metadata:
+ 				# call the md5sum function to get a hash, then use this as the OID to prevent duplicates in the database
+ 				md5 = md5sum(filename)
+ 				metadata[u'_id'] = md5
+@@ -150,14 +122,6 @@
+ 					matches.extend(fullmatches)
+ 				# Print yara hits, or none..**this will eventually export to logger**
+ 				if matches:
+-					for sigs in matches: 
+-					  if do_syslog == 'T':
+-						stime = time.mktime(time.gmtime())
+-						sig = str(sigs)
+-       						formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
+-       						syslog.setFormatter(formatter)
+-				 	        logger.addHandler(syslog)
+-						logger.info('CEF:0|{0}|{1}|{2}|sig1|{3}|2|msg={4} found in {5} dvchost={6} fname={7} fileHash={8} ts={9}\n'.format(vendor,product,version,sig,sig,md5,sensor_name,filename,md5,stime)) #jsa
+ 					metadata[u'YaraAlerts'] = str(matches)
+ 					logging.warning(timestamp + ": Yara Matches for " + name + ": " + str(matches) + " MD5: " + md5)
+ 				else:
+@@ -173,10 +137,9 @@
+ 					#Make destination dir per agument if non existant
+ 					if not os.path.exists(args['move']):
+ 						os.makedirs(args['move'])
+-					#shutil.move(filename, args['move'] + name)
+-					shutil.move(filename, args['move'] + md5)
++					shutil.move(filename, args['move'] + name)
+ 					#Verify move for logs:
+-					logging.info(timestamp + ":" + filename + " has been moved to " + args['move'] + md5)
++					logging.info(timestamp + ":" + filename + " has been moved to " + args['move'] + name)
+ 					 
+ 				# if -d switch is on, this will delete each file after scanning. !!BE CAREFUL WITH THIS!!
+ 				if args['delete'] == True:
