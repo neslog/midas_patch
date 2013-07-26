@@ -1,0 +1,82 @@
+--- midas.py    2013-07-25 20:59:54.000000000 -0400
++++ ../midas_v22_cef.py 2013-07-26 14:42:39.000000000 -0400
+@@ -9,8 +9,9 @@
+ # Or change the settings in midas-settings.cfg to reflect your custom database or server.
+ # Settings for logfile, and yararules file are also located in the midas-settings.cfg file.
+
+-import ConfigParser, exiftool, os, shutil, sys, hashlib, datetime, time, argparse, logging, pymongo, json, urllib, urllib2
++import ConfigParser, exiftool, os, shutil, sys, hashlib, datetime, time, argparse, logging, pymongo, json, urllib, urllib2, socket
+ from multiprocessing import Pool
++from logging.handlers import SysLogHandler
+
+ # Import DB Config from midas-settings.cfg
+ config = ConfigParser.SafeConfigParser()
+@@ -48,6 +49,31 @@
+ sleeptime = config.get('settings','sleep')
+ pathtofiles = args['Path']
+
++# CEF Syslog Output
++do_syslog = 'F'
++
++if config.has_section("cef"):
++        do_syslog='T'
++        loghost = config.get('cef','loghost')
++        logport = int(config.get('cef','logport'))
++        vendor = config.get('cef','vendor')
++        product = config.get('cef','product')
++        version = config.get('cef','version')
++        fileSize = "null"
++        fileType = "null"
++        sensor_name = socket.gethostname()
++       logger = logging.getLogger()
++       logger.setLevel(logging.INFO)
++        syslog = SysLogHandler(address=(loghost, logport))
++        formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
++        syslog.setFormatter(formatter)
++       fsize = 0000
++       fileType = "null"
++
++else:
++        print ("CEF Syslog not configured")
++
++
+ def printFuzzy():
+        print "\n\n Scanning all files recursively with "+ str(config.get('settings','threads')) +" threads from here: " + pathtofiles
+        print " Logging all information to: " + logsfile
+@@ -104,6 +130,13 @@
+                del metadata[key]
+        hits = []
+        for key, value in metadata.iteritems():
++               if key == "File:FileType":
++                       #print value
++                       fileType = value
++               if key == "File:FileSize":
++                       #print value
++                       fsize = value
++
+                for sig in badmetalist:
+                        if sig == value:
+                                logging.critical(timestamp() + ": Bad Metadata Alert: " + key + ":" + value + " MD5:"+ md5)
+@@ -123,6 +156,15 @@
+        if os.stat(filename).st_size > 0: #check to ensure no zero byte files are scanned
+                matches = rules.match(filename)
+                if matches:
++                       if do_syslog == 'T':
++                               for sig in matches:
++                                       stime = time.mktime(time.gmtime())
++                                       sig = str(sig)
++                                       #formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
++                                       #syslog.setFormatter(formatter)
++                                       logger.addHandler(syslog)
++                                       logger.info('CEF:0|{0}|{1}|{2}|sig1|{3}|2|msg={4} dvchost={6} fname={7} fileHash={8} ts={9} fsize={10} fileType={11} \n'.format(vendor,product,version,sig,sig,md5,sensor_name,filename,md5,stime,fsize,fileType)) #jsa
++
+                        logging.critical(timestamp() + ": Yara Alert: " + str(matches) + " MD5: " + md5)
+                        return matches
+                else:
+@@ -205,4 +247,4 @@
+                                        inspectFile(f)
+
+ if __name__ == "__main__":
+-       main()
+\ No newline at end of file
++       main()
