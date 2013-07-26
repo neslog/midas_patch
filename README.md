@@ -14,3 +14,14 @@ deviceVersion:  1
 
 Modified to move files and rename with the MD5 hash of the file.
 
+
+MIDASv22_CEF.patch
+
+Add the following to midas-settings.cfg to enable syslog output.
+
+[cef]
+loghost = <hostname or IP>
+logport = 514
+vendor = <companyname>
+product = MIDAS
+version = 22
