@@ -1,0 +1,92 @@
+--- midas.py  2013-07-25 20:59:54.000000000 -0400
++++ /usr/local/bin/scripts/MIDAS/midas.py	2013-07-29 16:22:49.000000000 -0400
+@@ -9,8 +9,9 @@
+ # Or change the settings in midas-settings.cfg to reflect your custom database or server.
+ # Settings for logfile, and yararules file are also located in the midas-settings.cfg file. 
+ 
+-import ConfigParser, exiftool, os, shutil, sys, hashlib, datetime, time, argparse, logging, pymongo, json, urllib, urllib2
++import ConfigParser, exiftool, os, shutil, sys, hashlib, datetime, time, argparse, logging, pymongo, json, urllib, urllib2, socket
+ from multiprocessing import Pool
++from logging.handlers import SysLogHandler
+ 
+ # Import DB Config from midas-settings.cfg
+ config = ConfigParser.SafeConfigParser()
+@@ -48,6 +49,31 @@
+ sleeptime = config.get('settings','sleep')
+ pathtofiles = args['Path']
+ 
++# CEF Syslog Output
++do_syslog = 'F'
++
++if config.has_section("cef"):
++        do_syslog='T'
++        loghost = config.get('cef','loghost')
++        logport = int(config.get('cef','logport'))
++        vendor = config.get('cef','vendor')
++        product = config.get('cef','product')
++        version = config.get('cef','version')
++        fileSize = "null"
++        fileType = "null"
++        sensor_name = socket.gethostname()
++	logger = logging.getLogger()
++	logger.setLevel(logging.INFO)
++        syslog = SysLogHandler(address=(loghost, logport))
++        formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
++        syslog.setFormatter(formatter)
++	fsize = 0000
++	fileType = "null"
++
++else:
++        print ("CEF Syslog not configured")
++
++
+ def printFuzzy():
+ 	print "\n\n Scanning all files recursively with "+ str(config.get('settings','threads')) +" threads from here: " + pathtofiles 
+ 	print " Logging all information to: " + logsfile
+@@ -103,8 +129,11 @@
+ 	for key in uselessexifkey:
+ 		del metadata[key]	
+ 	hits = []	
++	mytemp = str(metadata).replace("'", "").replace(": ","=\"").replace("u","").replace(", ","\" ").replace("{","").replace("}","")
++	cef_message = "msg=\"md5="+md5+" " + mytemp
+ 	for key, value in metadata.iteritems():
+ 		for sig in badmetalist:
++			#cef_message += str(key)+"="+str(value)+" "
+ 			if sig == value:
+ 				logging.critical(timestamp() + ": Bad Metadata Alert: " + key + ":" + value + " MD5:"+ md5)
+ 				hits.append("Bad_Meta:" + key +  value)
+@@ -112,7 +141,11 @@
+ 		metadata[u'Metadata_Alerts'] = str(hits).replace("u'", "").replace("'",'')
+ 	else: 
+ 		metadata[u'Metadata_Alerts'] = 'None'
++        logger.addHandler(syslog)
++        logger.info('CEF:0|{0}|{1}|{2}|FILE_METADATA|{3}|2|{4}\n'.format(vendor,product,version,md5,cef_message)) #jsa
++
+ 	return metadata
++	cef_message =""
+ 
+ def timestamp():
+ 	now = datetime.datetime.now()
+@@ -123,6 +156,15 @@
+ 	if os.stat(filename).st_size > 0: #check to ensure no zero byte files are scanned 
+ 		matches = rules.match(filename)
+ 		if matches:
++			if do_syslog == 'T':
++				for sig in matches:
++					stime = time.mktime(time.gmtime())
++					sig = str(sig)
++					#formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
++					#syslog.setFormatter(formatter)
++					logger.addHandler(syslog)
++					logger.info('CEF:0|{0}|{1}|{2}|sig1|{3}|2|msg={4} dvchost={6} fname={7} fileHash={8} ts={9} fsize={10} fileType={11} \n'.format(vendor,product,version,sig,sig,md5,sensor_name,filename,md5,stime,fsize,fileType)) #jsa
++
+ 			logging.critical(timestamp() + ": Yara Alert: " + str(matches) + " MD5: " + md5)
+ 			return matches
+ 		else:
+@@ -205,4 +247,4 @@
+ 					inspectFile(f)
+ 
+ if __name__ == "__main__":
+-	main()  
+\ No newline at end of file
++	main()  
