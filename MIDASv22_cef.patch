@@ -1,0 +1,63 @@
+12c12
+< import ConfigParser, exiftool, os, shutil, sys, hashlib, datetime, time, argparse, logging, pymongo, json, urllib, urllib2
+---
+> import ConfigParser, exiftool, os, shutil, sys, hashlib, datetime, time, argparse, logging, pymongo, json, urllib, urllib2, socket
+13a14
+> from logging.handlers import SysLogHandler
+50a52,78
+> # CEF Syslog Output
+> do_syslog = 'F'
+> 
+> if config.has_section("cef"):
+>         do_syslog='T'
+>         loghost = config.get('cef','loghost')
+>         logport = int(config.get('cef','logport'))
+>         vendor = config.get('cef','vendor')
+>         product = config.get('cef','product')
+>         version = config.get('cef','version')
+>         fileSize = "null"
+>         fileType = "null"
+>         sensor_name = socket.gethostname()
+>   logger = logging.getLogger()
+> 	logger.setLevel(logging.INFO)
+>         syslog = SysLogHandler(address=(loghost, logport))
+>         formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
+>         syslog.setFormatter(formatter)
+> 	fsize = 0000
+> 	fileType = "null"
+>         logger.addHandler(syslog)
+> 
+> 
+> else:
+>         print ("CEF Syslog not configured")
+> 
+> 
+105a134,135
+> 	mytemp = str(metadata).replace("'", "").replace(": ","=\"").replace("u","").replace(", ","\" ").replace("{","").replace("}","")
+> 	cef_message = "msg=\"md5="+md5+" " + mytemp
+109a140
+> 				print "Found it"
+110a142,143
+>         			logger.info('CEF:0|{0}|{1}|{2}|BAD_METADATA|{3}|2|msg="{4}: {5}"\n'.format(vendor,product,version,md5,key,value)) #jsa
+> 
+114a148,150
+>         logger.addHandler(syslog)
+>         logger.info('CEF:0|{0}|{1}|{2}|FILE_METADATA|{3}|2|{4}\n'.format(vendor,product,version,md5,cef_message)) #jsa
+> 
+115a152
+> 	cef_message =""
+125a163,171
+> 			if do_syslog == 'T':
+> 				for sig in matches:
+> 					stime = time.mktime(time.gmtime())
+> 					sig = str(sig)
+> 					#formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
+> 					#syslog.setFormatter(formatter)
+> 					logger.addHandler(syslog)
+> 					logger.info('CEF:0|{0}|{1}|{2}|sig1|{3}|2|msg={4} dvchost={6} fname={7} fileHash={8} ts={9} fsize={10} fileType={11} \n'.format(vendor,product,version,sig,sig,md5,sensor_name,filename,md5,stime,fsize,fileType)) #jsa
+> 
+208c254
+< 	main()  
+\ No newline at end of file
+---
+> 	main()  
